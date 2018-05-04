@@ -2,10 +2,14 @@
 from pprint import pprint
 import argparse
 import os
+import random
+from string import ascii_letters, digits
 
-from satoricore.serialize import load_image
+from satoricore.file import load_image
 from satoricore.image import SatoriImage
 from satoricore.crawler import BaseCrawler
+
+from satoridiffer.diffmeta import DiffMeta
 
 from hooker import EVENTS, hook
 
@@ -16,11 +20,17 @@ EVENTS.append([
 
 from satoricore.extensions import *  # noqa
 
-from satoridiffer.diffmeta import DiffMeta
-
 _DIFFS_SECTION = 'diffs'
 
-@hook('differ.pre_open')
+
+@hook('differ.on_start')
+def set_diff_meta(parser, args, source, destination, results, diff_name):
+    diff_meta = DiffMeta(source, destination)
+    results.add_class(name, section=_DIFFS_SECTION, data=diff_meta)
+    # pprint(diff_meta)
+
+
+# @hook('differ.pre_open')
 def check_contents(file_path, file_type, source, destination, results):
     if not source.is_dir(file_path) or not destination.is_dir(file_path):
         # print (file_path)
@@ -39,13 +49,15 @@ def check_contents(file_path, file_type, source, destination, results):
         results.set_attribute(file_path, dest_only, 'contents.diff')
 
 
-def diff(source, destination, entrypoints, results):
+
+
+def diff(source, destination, entrypoints, results, diff_name):
     crawler = BaseCrawler(entrypoints, [], source)
 
 
     for file_path, file_type in crawler():
         EVENTS['differ.pre_open'](
-            file_path, file_type, source, destination, results,
+            file_path, file_type, source, destination, results, diff_name
         )
 
         if not EVENTS['differ.with_open']:
@@ -53,14 +65,12 @@ def diff(source, destination, entrypoints, results):
 
         with source.open(file_path) as fd:
             EVENTS['differ.with_open'](
-                file_path, file_type, source, destination, results, fd,
+                file_path, file_type, source, destination, results, diff_name, fd,
             )
 
         EVENTS['differ.post_close'](
-            file_path, file_type, source, destination, results
+            file_path, file_type, source, destination, results, diff_name
         )
-
-    EVENTS['differ.on_end']()
     return results
 
 def _setup_argument_parser():
@@ -125,10 +135,19 @@ def _setup_argument_parser():
 
 # def initialize_results(source, destination, results_image):
 #     pass
-def diff_name(existing):
+def get_diff_name(existing):
+
+    def new_name(i):
+        # return 'diff_%d' % i
+        rand = ''.join(random.choices(ascii_letters + digits, k=6))
+        return "{id}_{tag}".format(
+            id=i,
+            tag=rand,   # Add random string to make it greppable
+        )
+
     i = 1
     while True:
-        name = 'diff_%d' % i
+        name = new_name(i)
         if name not in existing:
             return name
 
@@ -145,7 +164,7 @@ if __name__ == '__main__':
         source = load_image(image_path)
 
     if args.tested_image == '.':
-        source = os
+        destination = os
     else:
         image_path = args.tested_image
         destination = load_image(image_path)
@@ -161,13 +180,21 @@ if __name__ == '__main__':
         results.add_section(_DIFFS_SECTION)
     except KeyError:
         pass
-        
-    existing_diffs = results.get_classes(_DIFFS_SECTION)
-    name = diff_name(existing_diffs)
-    diff_meta = DiffMeta(source, destination)
-    results.add_class(name, section=_DIFFS_SECTION, data=diff_meta)
-    pprint(diff_meta)
 
-    # print(args.entrypoints)
-    diff_obj = diff(source, destination, args.entrypoints, results)
-    pprint(diff_obj)
+    existing_diffs = results.get_classes(_DIFFS_SECTION)
+    name = get_diff_name(existing_diffs)
+
+    EVENTS['differ.on_start'](parser=parser, args=args, source=source,
+            destination=destination, results=results, diff_name=name)
+
+    diff_obj = diff(source, destination, args.entrypoints, results, name)
+    print(diff_obj)
+
+    EVENTS['differ.on_end'](results)
+
+
+"""
+
+tr "'" "\"" | jq
+
+"""
