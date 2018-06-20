@@ -1,9 +1,4 @@
-__version__ = '0.0.1'
+__version__ = '0.1.0'
 __name__ = 'satori-differ'
-__desc__ = (
-    'A satori script to display differences between two compatible interfaces '
-    'e.g. a SatoriImage and the Filesystem or between two instances of '
-    'SatoriImage.'
-
-)
+__desc__ = 'The Image Differ of the Satori-Suite'
 __email__ = 'satori_ng@email.com'

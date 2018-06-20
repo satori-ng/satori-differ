@@ -2,6 +2,9 @@ from setuptools import setup
 
 import satoridiffer
 
+with open('requirements.txt') as f:
+    requirements = f.read().splitlines()
+
 setup(
     name=satoridiffer.__name__,
     description=satoridiffer.__desc__,
@@ -10,11 +13,15 @@ setup(
     author="Satori-NG org",
     author_email=satoridiffer.__email__,
 
-    packages=["satoridiffer"],
+    packages=['satoridiffer'],
 
-    # entry_points={
-    #     "console_scripts": [
-    #         "hexwordify=hexwordify.__main__:main",
-    #     ],
-    # },
+    entry_points={
+        "console_scripts": [
+            "satori-differ=satoridiffer.__main__:main",
+        ],
+    },
+    install_requires=requirements,
+
 )
+
+
