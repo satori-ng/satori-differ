@@ -36,11 +36,9 @@ def set_diff_meta(parser, args, source, destination, results, diff_name):
 def diff_directory(file_path, source, destination, results):
 	s_cont = set(source.listdir(file_path))
 	d_cont = set(destination.listdir(file_path))
-
 	source_only = s_cont - d_cont
 	dest_only = d_cont - s_cont
 
-	# print (source_only, dest_only)
 	for diff_only in (
 			(source_only, "src_only"),
 			(dest_only, "dst_only"),
@@ -57,10 +55,12 @@ def diff_directory(file_path, source, destination, results):
 					)
 			diff_dict[diff_only[1]] = list(diff_only[0])
 
-
-	common_files = source_only & dest_only
+	# print (s_cont, d_cont)
+	common_files = s_cont & d_cont
+	# print(common_files)
 	for f in common_files:	# Use thread map?
-		diff_file(file_path, source, destination, results)
+		new_file_path = file_path + '/' + f
+		diff_file(new_file_path, source, destination, results)
 
 
 def diff_file(file_path, source, destination, results):
