@@ -69,9 +69,9 @@ def diff_file(file_path, source, destination, results):
 
 	try:
 		EVENTS['differ.pre_open'](
-			file_path, file_type, source, destination, results, DIFF_NAME
+			file_path, source, destination, results, DIFF_NAME
 		)
-	except:
+	except Exception as e:
 		logger.error("File '{}' not found in destination"
 				.format(file_path)
 			)
