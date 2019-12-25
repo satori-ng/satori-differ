@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from pprint import pprint
 import argparse
-import os
+import os, sys
 import random
 from string import ascii_letters, digits
 
@@ -34,8 +34,14 @@ def set_diff_meta(parser, args, source, destination, results, diff_name):
 
 
 def diff_directory(file_path, source, destination, results):
-	s_cont = set(source.listdir(file_path))
-	d_cont = set(destination.listdir(file_path))
+	try:
+		s_cont = set(source.listdir(file_path))
+		d_cont = set(destination.listdir(file_path))
+	except PermissionError:
+		logger.warn("Permission Denied for listing '{}'. Skipping..."
+			.format(file_path)
+			)
+		return
 	source_only = s_cont - d_cont
 	dest_only = d_cont - s_cont
 
@@ -253,14 +259,17 @@ def main():
 				# s_entrypoints
 				try:
 					s_epoints = source.get_entrypoints()
+					logger.info("Original Image entrypoints: {}".format(s_epoints))
 				except:
 					logger.warn("Entrypoints for source cannot be specified.")
-					s_epoints = set()
+					d_epoints = set('/')
+
 				try:
 					d_epoints = destination.get_entrypoints()
+					logger.info("Tested Image entrypoints: {}".format(d_epoints))
 				except:
 					logger.warn("Entrypoints for destination cannot be specified.")
-					d_epoints = set()
+					d_epoints = set('/')
 
 				common_entrypoints = s_epoints & d_epoints
 				if not common_entrypoints:
