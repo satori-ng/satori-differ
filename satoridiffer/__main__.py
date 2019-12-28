@@ -154,7 +154,7 @@ def _setup_argument_parser():
 
 	parser.add_argument(
 		'-i',
-		help='Store the differences in the tested Satori Image',
+		help='Stores the new Diff section and data in the Tested Satori Image',
 		action='store_true',
 	)
 
@@ -199,20 +199,23 @@ def _setup_argument_parser():
 # def initialize_results(source, destination, results_image):
 #	 pass
 def get_diff_name(existing):
+	existing = list(existing)
+	def get_diff_id(diff_name):
+		'''
+			Get the id value from diff_name of format: d{id}_{tag}
+		'''
+		return int(diff_name[1:].split('_')[0])
 
-	def new_name(i):
-		# return 'diff_%d' % i
+	def new_name(id_):
+		# return a d{id}_{tag}
 		rand = ''.join(random.choices(ascii_letters + digits, k=6))
 		return "d{id}_{tag}".format(
-			id=i,
+			id=id_,
 			tag=rand,   # Add random string to make it greppable
 		)
-
-	i = 1
-	while True:
-		name = new_name(i)
-		if name not in existing:
-			return name
+	if not existing: existing.append('d0_0000')
+	i = get_diff_id(existing[-1])
+	return new_name(i+1)
 
 DIFF_NAME = ""
 def main():
@@ -225,6 +228,8 @@ def main():
 	destination_context = get_image_context_from_arg(args.tested_image)
 	logger.warn("Loaded image '{}'".format(args.tested_image))
 
+ 	# if not args.output:
+
 	try:
 		results = load_image(args.output)
 
@@ -234,6 +239,7 @@ def main():
 		logger.info("Using an Empty SatoriImage to store results")
 		results = SatoriImage()
 	except ValueError:
+
 		logger.error("Output image file '{}' is not a SatoriImage".format(args.output))
 		logger.warn("Using an Empty SatoriImage to store results".format(args.output))
 		results = SatoriImage()
@@ -292,16 +298,18 @@ def main():
 					destination=destination, results=results, diff_name=DIFF_NAME)
 			logger.warn("Diff Process Started...")
 			diff_images(source, destination, args.entrypoints, results)
-			logger.warn("Diff Process Finished!")
 
+	logger.warn("Diff Process Finished!")
 
-			if not args.output:
-				args.output = DIFF_NAME
+	if not args.output:
+		args.output = DIFF_NAME
 
-			image_serializer = SatoriJsoner()
-			# image_serializer = SatoriPickler()
-			image_serializer.write(results, args.output)
-			logger.warn("Stored to file '{}'".format(image_serializer.last_file))
+	image_serializer = SatoriJsoner()
+	# image_serializer = SatoriPickler()
+	if args.output.endswith(image_serializer.suffix):
+		image_serializer.suffix = ''
+	image_serializer.write(results, args.output)
+	logger.warn("Stored to file '{}'".format(image_serializer.last_file))
 
 			# print(diff_obj)
 			# print(results)
