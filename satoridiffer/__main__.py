@@ -9,6 +9,7 @@ from satoricore.image import SatoriImage
 from satoricore.crawler import BaseCrawler
 from satoricore.logger import logger
 from satoricore.common import get_image_context_from_arg
+from satoricore.file import load_image
 
 from satoridiffer.diffmeta import DiffMeta
 from hooker import EVENTS, hook
@@ -225,7 +226,8 @@ def main():
 	logger.warn("Loaded image '{}'".format(args.tested_image))
 
 	try:
-		results = get_image_context_from_arg(args.output)
+		results = load_image(args.output)
+
 		logger.warn("SatoriImage '{}' loaded to archive results".format(args.output))
 	except TypeError as te:
 		logger.warn("No output image selected")
@@ -235,7 +237,6 @@ def main():
 		logger.error("Output image file '{}' is not a SatoriImage".format(args.output))
 		logger.warn("Using an Empty SatoriImage to store results".format(args.output))
 		results = SatoriImage()
-
 	assert (results is not None)
 
 	try:
@@ -296,7 +297,7 @@ def main():
 
 			if not args.output:
 				args.output = DIFF_NAME
-				
+
 			image_serializer = SatoriJsoner()
 			# image_serializer = SatoriPickler()
 			image_serializer.write(results, args.output)
