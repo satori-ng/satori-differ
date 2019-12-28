@@ -13,7 +13,8 @@ from satoricore.common import get_image_context_from_arg
 from satoridiffer.diffmeta import DiffMeta
 from hooker import EVENTS, hook
 
-from pathdict import PathDict as pdict
+from satoricore.file.json import SatoriJsoner
+from satoricore.file.pickle import SatoriPickler
 
 EVENTS.append([
 	"differ.on_start", "differ.pre_open", "differ.with_open",
@@ -223,17 +224,19 @@ def main():
 	destination_context = get_image_context_from_arg(args.tested_image)
 	logger.warn("Loaded image '{}'".format(args.tested_image))
 
-	if args.output:
-		try:
-			results = load_image(args.output)
-		except ValueError:
-			logger.error("Output image file '{}' is not a SatoriImage".format(args.output))
-
-	else:
+	try:
+		results = get_image_context_from_arg(args.output)
+		logger.warn("SatoriImage '{}' loaded to archive results".format(args.output))
+	except TypeError as te:
+		logger.warn("No output image selected")
+		logger.info("Using an Empty SatoriImage to store results")
+		results = SatoriImage()
+	except ValueError:
+		logger.error("Output image file '{}' is not a SatoriImage".format(args.output))
 		logger.warn("Using an Empty SatoriImage to store results".format(args.output))
 		results = SatoriImage()
 
-	assert (results != None)
+	assert (results is not None)
 
 	try:
 		logger.info("Adding DIFF section in SatoriImage")
@@ -285,15 +288,22 @@ def main():
 				)
 
 			EVENTS['differ.on_start'](parser=parser, args=args, source=source,
-					destination=destination, results=results, diff_name=name)
-			logger.warn("Diff Started")
-			# logger.info("Pass 1")
+					destination=destination, results=results, diff_name=DIFF_NAME)
+			logger.warn("Diff Process Started...")
 			diff_images(source, destination, args.entrypoints, results)
-			# logger.info("Pass 2")
-			# diff_images(source, destination, args.entrypoints, results, name, reverse=True)
+			logger.warn("Diff Process Finished!")
+
+
+			if not args.output:
+				args.output = DIFF_NAME
+				
+			image_serializer = SatoriJsoner()
+			# image_serializer = SatoriPickler()
+			image_serializer.write(results, args.output)
+			logger.warn("Stored to file '{}'".format(image_serializer.last_file))
 
 			# print(diff_obj)
-			print(results)
+			# print(results)
 
 		# if args.output:
 		# 	pass			
