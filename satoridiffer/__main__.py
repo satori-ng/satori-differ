@@ -6,7 +6,6 @@ import random
 from string import ascii_letters, digits
 
 from satoricore.image import SatoriImage
-from satoricore.crawler import BaseCrawler
 from satoricore.logger import logger
 from satoricore.common import get_image_context_from_arg
 
@@ -88,7 +87,7 @@ def diff_file(file_path, source, destination, results):
 				file_path, file_type, source, destination, results, DIFF_NAME
 		)
 		except IOError:
-			logger.warn("'open()' System Call not supported on {}".format(file_path))
+			logger.warning("'open()' System Call not supported on {}".format(file_path))
 
 
 def diff_images(source, destination, entrypoints, results):
@@ -213,9 +212,9 @@ def main():
 	args = parser.parse_args()
 
 	source_context = get_image_context_from_arg(args.original_image)
-	logger.warn("Loaded image '{}'".format(args.original_image))
+	logger.warning("Loaded image '{}'".format(args.original_image))
 	destination_context = get_image_context_from_arg(args.tested_image)
-	logger.warn("Loaded image '{}'".format(args.tested_image))
+	logger.warning("Loaded image '{}'".format(args.tested_image))
 
 	if args.output:
 		try:
@@ -224,7 +223,7 @@ def main():
 			logger.error("Output image file '{}' is not a SatoriImage".format(args.output))
 
 	else:
-		logger.warn("Using an Empty SatoriImage to store results".format(args.output))
+		logger.warning("Using an Empty SatoriImage to store results".format(args.output))
 		results = SatoriImage()
 
 	assert (results != None)
@@ -233,7 +232,7 @@ def main():
 		logger.info("Adding DIFF section in SatoriImage")
 		results.add_section(_DIFFS_SECTION)
 	except KeyError:
-		logger.warn("DIFF Section in SatoriImage already exists")
+		logger.warning("DIFF Section in SatoriImage already exists")
 
 
 	existing_diffs = results.get_classes(_DIFFS_SECTION)
@@ -245,7 +244,7 @@ def main():
 	name = get_diff_name(existing_diffs)
 	global DIFF_NAME
 	DIFF_NAME = name
-	logger.warn("New DIFF name is '{}'".format(name))
+	logger.warning("New DIFF name is '{}'".format(name))
 
 	with source_context as source:
 		with destination_context as destination:
@@ -254,12 +253,12 @@ def main():
 				try:
 					s_epoints = source.get_entrypoints()
 				except:
-					logger.warn("Entrypoints for source cannot be specified.")
+					logger.warning("Entrypoints for source cannot be specified.")
 					s_epoints = set()
 				try:
 					d_epoints = destination.get_entrypoints()
 				except:
-					logger.warn("Entrypoints for destination cannot be specified.")
+					logger.warning("Entrypoints for destination cannot be specified.")
 					d_epoints = set()
 
 				common_entrypoints = s_epoints & d_epoints
@@ -271,13 +270,13 @@ def main():
 							.format(str(common_entrypoints))
 						)
 					args.entrypoints = common_entrypoints
-			logger.warn("Operating for entrypoints: {}"
+			logger.warning("Operating for entrypoints: {}"
 					.format(str(args.entrypoints))
 				)
 
 			EVENTS['differ.on_start'](parser=parser, args=args, source=source,
 					destination=destination, results=results, diff_name=name)
-			logger.warn("Diff Started")
+			logger.warning("Diff Started")
 			# logger.info("Pass 1")
 			diff_images(source, destination, args.entrypoints, results)
 			# logger.info("Pass 2")
@@ -289,9 +288,7 @@ def main():
 		# if args.output:
 		# 	pass			
 
-
 	EVENTS['differ.on_end'](results)
-
 
 
 if __name__ == '__main__':
