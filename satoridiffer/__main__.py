@@ -1,18 +1,20 @@
 #!/usr/bin/env python
 from pprint import pprint
 import argparse
-import os
+import os, sys
 import random
 from string import ascii_letters, digits
 
 from satoricore.image import SatoriImage
 from satoricore.logger import logger
 from satoricore.common import get_image_context_from_arg
+from satoricore.file import load_image
 
 from satoridiffer.diffmeta import DiffMeta
 from hooker import EVENTS, hook
 
-from pathdict import PathDict as pdict
+from satoricore.file.json import SatoriJsoner
+from satoricore.file.pickle import SatoriPickler
 
 EVENTS.append([
 	"differ.on_start", "differ.pre_open", "differ.with_open",
@@ -33,13 +35,17 @@ def set_diff_meta(parser, args, source, destination, results, diff_name):
 
 
 def diff_directory(file_path, source, destination, results):
-	s_cont = set(source.listdir(file_path))
-	d_cont = set(destination.listdir(file_path))
-
+	try:
+		s_cont = set(source.listdir(file_path))
+		d_cont = set(destination.listdir(file_path))
+	except PermissionError:
+		logger.warning("Permission Denied for listing '{}'. Skipping..."
+			.format(file_path)
+			)
+		return
 	source_only = s_cont - d_cont
 	dest_only = d_cont - s_cont
 
-	# print (source_only, dest_only)
 	for diff_only in (
 			(source_only, "src_only"),
 			(dest_only, "dst_only"),
@@ -56,10 +62,12 @@ def diff_directory(file_path, source, destination, results):
 					)
 			diff_dict[diff_only[1]] = list(diff_only[0])
 
-
-	common_files = source_only & dest_only
+	# print (s_cont, d_cont)
+	common_files = s_cont & d_cont
+	# print(common_files)
 	for f in common_files:	# Use thread map?
-		diff_file(file_path, source, destination, results)
+		new_file_path = file_path + '/' + f
+		diff_file(new_file_path, source, destination, results)
 
 
 def diff_file(file_path, source, destination, results):
@@ -68,9 +76,9 @@ def diff_file(file_path, source, destination, results):
 
 	try:
 		EVENTS['differ.pre_open'](
-			file_path, file_type, source, destination, results, DIFF_NAME
+			file_path, source, destination, results, DIFF_NAME
 		)
-	except:
+	except Exception as e:
 		logger.error("File '{}' not found in destination"
 				.format(file_path)
 			)
@@ -145,7 +153,7 @@ def _setup_argument_parser():
 
 	parser.add_argument(
 		'-i',
-		help='Store the differences in the tested Satori Image',
+		help='Stores the new Diff section and data in the Tested Satori Image',
 		action='store_true',
 	)
 
@@ -190,20 +198,23 @@ def _setup_argument_parser():
 # def initialize_results(source, destination, results_image):
 #	 pass
 def get_diff_name(existing):
+	existing = list(existing)
+	def get_diff_id(diff_name):
+		'''
+			Get the id value from diff_name of format: d{id}_{tag}
+		'''
+		return int(diff_name[1:].split('_')[0])
 
-	def new_name(i):
-		# return 'diff_%d' % i
+	def new_name(id_):
+		# return a d{id}_{tag}
 		rand = ''.join(random.choices(ascii_letters + digits, k=6))
 		return "d{id}_{tag}".format(
-			id=i,
+			id=id_,
 			tag=rand,   # Add random string to make it greppable
 		)
-
-	i = 1
-	while True:
-		name = new_name(i)
-		if name not in existing:
-			return name
+	if not existing: existing.append('d0_0000')
+	i = get_diff_id(existing[-1])
+	return new_name(i+1)
 
 DIFF_NAME = ""
 def main():
@@ -216,17 +227,22 @@ def main():
 	destination_context = get_image_context_from_arg(args.tested_image)
 	logger.warning("Loaded image '{}'".format(args.tested_image))
 
-	if args.output:
-		try:
-			results = load_image(args.output)
-		except ValueError:
-			logger.error("Output image file '{}' is not a SatoriImage".format(args.output))
+ 	# if not args.output:
 
-	else:
+	try:
+		results = load_image(args.output)
+
+		logger.warning("SatoriImage '{}' loaded to archive results".format(args.output))
+	except TypeError as te:
+		logger.warning("No output image selected")
+		logger.info("Using an Empty SatoriImage to store results")
+		results = SatoriImage()
+	except ValueError:
+
+		logger.error("Output image file '{}' is not a SatoriImage".format(args.output))
 		logger.warning("Using an Empty SatoriImage to store results".format(args.output))
 		results = SatoriImage()
-
-	assert (results != None)
+	assert (results is not None)
 
 	try:
 		logger.info("Adding DIFF section in SatoriImage")
@@ -252,14 +268,17 @@ def main():
 				# s_entrypoints
 				try:
 					s_epoints = source.get_entrypoints()
+					logger.info("Original Image entrypoints: {}".format(s_epoints))
 				except:
 					logger.warning("Entrypoints for source cannot be specified.")
-					s_epoints = set()
+					d_epoints = set('/')
+
 				try:
 					d_epoints = destination.get_entrypoints()
+					logger.info("Tested Image entrypoints: {}".format(d_epoints))
 				except:
 					logger.warning("Entrypoints for destination cannot be specified.")
-					d_epoints = set()
+					d_epoints = set('/')
 
 				common_entrypoints = s_epoints & d_epoints
 				if not common_entrypoints:
@@ -275,15 +294,24 @@ def main():
 				)
 
 			EVENTS['differ.on_start'](parser=parser, args=args, source=source,
-					destination=destination, results=results, diff_name=name)
-			logger.warning("Diff Started")
-			# logger.info("Pass 1")
+					destination=destination, results=results, diff_name=DIFF_NAME)
+			logger.warning("Diff Process Started...")
 			diff_images(source, destination, args.entrypoints, results)
-			# logger.info("Pass 2")
-			# diff_images(source, destination, args.entrypoints, results, name, reverse=True)
+
+	logger.warning("Diff Process Finished!")
+
+	if not args.output:
+		args.output = DIFF_NAME
+
+	image_serializer = SatoriJsoner()
+	# image_serializer = SatoriPickler()
+	if args.output.endswith(image_serializer.suffix):
+		image_serializer.suffix = ''
+	image_serializer.write(results, args.output)
+	logger.warning("Stored to file '{}'".format(image_serializer.last_file))
 
 			# print(diff_obj)
-			print(results)
+			# print(results)
 
 		# if args.output:
 		# 	pass			
