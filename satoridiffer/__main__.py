@@ -178,6 +178,13 @@ def _setup_argument_parser():
 	# )
 
 	parser.add_argument(
+		'-a', '--append',
+		help=("Append the diff results to the output Image"),
+		default=False,
+		action='store_true',
+	)
+
+	parser.add_argument(
 		'-d', '--debug',
 		help=("Shows debug messages"),
 		default=False,
@@ -210,8 +217,6 @@ def _setup_argument_parser():
 	return parser
 
 
-# def initialize_results(source, destination, results_image):
-#	 pass
 def get_diff_name(existing):
 	existing = list(existing)
 	def get_diff_id(diff_name):
@@ -231,9 +236,9 @@ def get_diff_name(existing):
 	i = get_diff_id(existing[-1])
 	return new_name(i+1)
 
+
 DIFF_NAME = ""
 def main():
-
 	parser = _setup_argument_parser()
 	args = parser.parse_args()
 
@@ -248,8 +253,13 @@ def main():
 
 	try:
 		results = load_image(args.output)
+		if args.append:
+			logger.warn("SatoriImage '{}' loaded to archive results".format(args.output))
+		else:
+			with open(args.output, 'wb') as delete:
+				delete.write(b'')
+			logger.warn("SatoriImage '{}' overwritten".format(args.output))
 
-		logger.warn("SatoriImage '{}' loaded to archive results".format(args.output))
 	except (TypeError, FileNotFoundError) as te:
 		logger.warn("No output image selected")
 		logger.info("Using an Empty SatoriImage to store results")
@@ -314,20 +324,17 @@ def main():
 			diff_images(source, destination, args.entrypoints, results)
 
 	logger.warn("Diff Process Finished!")
-
-	if not args.output:
-		args.output = DIFF_NAME
-
-	image_serializer = SatoriJsoner()
-	# image_serializer = SatoriPickler()
-	if args.output.endswith(image_serializer.suffix):
-		image_serializer.suffix = ''
-	image_serializer.write(results, args.output)
-	logger.warn("Stored to file '{}'".format(image_serializer.last_file))
-
-
 	EVENTS['differ.on_end'](results)
 
+	if not args.output:
+		print(results)
+	else:
+		image_serializer = SatoriJsoner()
+		# image_serializer = SatoriPickler()
+		if args.output.endswith(image_serializer.suffix):
+			image_serializer.suffix = ''
+		image_serializer.write(results, args.output)
+		logger.warn("Stored to file '{}'".format(image_serializer.last_file))
 
 
 if __name__ == '__main__':
