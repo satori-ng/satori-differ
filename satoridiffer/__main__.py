@@ -7,7 +7,7 @@ from string import ascii_letters, digits
 
 from satoricore.image import SatoriImage
 from satoricore.crawler import BaseCrawler
-from satoricore.logger import logger
+from satoricore.logger import logger, set_debug_logger
 from satoricore.common import get_image_context_from_arg
 from satoricore.file import load_image
 
@@ -25,6 +25,7 @@ EVENTS.append([
 from satoricore.extensions import *  # noqa
 
 _DIFFS_SECTION = 'diffs'
+CHECKED_FILES = set()
 
 
 @hook('differ.on_start')
@@ -47,13 +48,18 @@ def diff_directory(file_path, source, destination, results):
 	source_only = s_cont - d_cont
 	dest_only = d_cont - s_cont
 
+	logger.debug("Filepath: " + file_path)
+	logger.debug("Source Only:" + str(source_only))
+	logger.debug("Dest Only:" + str(dest_only))
 	for diff_only in (
 			(source_only, "src_only"),
 			(dest_only, "dst_only"),
 		):
+		logger.debug(diff_only[1])
 		if diff_only[0]:
 			try:
 				diff_dict = results.get_attribute(file_path, DIFF_NAME)
+				logger.debug(diff_dict)
 			except FileNotFoundError:
 				diff_dict = {}
 				results.set_attribute(file_path,
@@ -62,7 +68,8 @@ def diff_directory(file_path, source, destination, results):
 						force_create=True,
 					)
 			diff_dict[diff_only[1]] = list(diff_only[0])
-
+	
+	# logger.debug(results)
 	# print (s_cont, d_cont)
 	common_files = s_cont & d_cont
 	# print(common_files)
@@ -74,12 +81,13 @@ def diff_directory(file_path, source, destination, results):
 def diff_file(file_path, source, destination, results):
 	if source.is_dir(file_path) and destination.is_dir(file_path):
 		diff_directory(file_path, source, destination, results)
-
+	CHECKED_FILES.add(file_path)
 	try:
 		EVENTS['differ.pre_open'](
 			file_path, source, destination, results, DIFF_NAME
 		)
 	except Exception as e:
+		logger.error(e)
 		logger.error("File '{}' not found in destination"
 				.format(file_path)
 			)
@@ -93,8 +101,8 @@ def diff_file(file_path, source, destination, results):
 				)
 
 			EVENTS['differ.post_close'](
-				file_path, file_type, source, destination, results, DIFF_NAME
-		)
+					file_path, file_type, source, destination, results, DIFF_NAME
+				)
 		except IOError:
 			logger.warn("'open()' System Call not supported on {}".format(file_path))
 
@@ -106,7 +114,6 @@ def diff_images(source, destination, entrypoints, results):
 
 
 
-CHECKED_FILES = set()
 # def diff_images(source, destination, entrypoints, results,
 # 				diff_name, reverse=False):
 
@@ -163,9 +170,16 @@ def _setup_argument_parser():
 		help='The Image file to store the differences',
 	)
 
+	# parser.add_argument(
+	# 	'-q', '--quiet',
+	# 	help=("Does not show Errors"),
+	# 	default=False,
+	# 	action='store_true',
+	# )
+
 	parser.add_argument(
-		'-q', '--quiet',
-		help=("Does not show Errors"),
+		'-d', '--debug',
+		help=("Shows debug messages"),
 		default=False,
 		action='store_true',
 	)
@@ -223,6 +237,8 @@ def main():
 	parser = _setup_argument_parser()
 	args = parser.parse_args()
 
+	if args.debug: set_debug_logger()
+
 	source_context = get_image_context_from_arg(args.original_image)
 	logger.warn("Loaded image '{}'".format(args.original_image))
 	destination_context = get_image_context_from_arg(args.tested_image)
@@ -234,12 +250,11 @@ def main():
 		results = load_image(args.output)
 
 		logger.warn("SatoriImage '{}' loaded to archive results".format(args.output))
-	except TypeError as te:
+	except (TypeError, FileNotFoundError) as te:
 		logger.warn("No output image selected")
 		logger.info("Using an Empty SatoriImage to store results")
 		results = SatoriImage()
 	except ValueError:
-
 		logger.error("Output image file '{}' is not a SatoriImage".format(args.output))
 		logger.warn("Using an Empty SatoriImage to store results".format(args.output))
 		results = SatoriImage()
@@ -255,13 +270,12 @@ def main():
 	existing_diffs = results.get_classes(_DIFFS_SECTION)
 	if existing_diffs:
 		logger.info("Existing DIFFs in SatoriImage: {}"
-				.format(str(existing_diffs))
+				.format(list(existing_diffs))
 			)
 
-	name = get_diff_name(existing_diffs)
 	global DIFF_NAME
-	DIFF_NAME = name
-	logger.warn("New DIFF name is '{}'".format(name))
+	DIFF_NAME = get_diff_name(existing_diffs)
+	logger.warn("New DIFF name is '{}'".format(DIFF_NAME))
 
 	with source_context as source:
 		with destination_context as destination:
@@ -310,12 +324,6 @@ def main():
 		image_serializer.suffix = ''
 	image_serializer.write(results, args.output)
 	logger.warn("Stored to file '{}'".format(image_serializer.last_file))
-
-			# print(diff_obj)
-			# print(results)
-
-		# if args.output:
-		# 	pass			
 
 
 	EVENTS['differ.on_end'](results)
