@@ -285,7 +285,6 @@ def main():
 			)
 
 	global DIFF_NAME
-	DIFF_NAME = name
 	logger.warning("New DIFF name is '{}'".format(DIFF_NAME))
 
 	with source_context as source:
