@@ -260,11 +260,6 @@ def main():
 			with open(args.output, 'wb') as delete:
 				delete.write(b'')
 			logger.warn("SatoriImage '{}' overwritten".format(args.output))
-
-<<<<<<< HEAD
-=======
-		logger.warning("SatoriImage '{}' loaded to archive results".format(args.output))
->>>>>>> ae73eaf13fcc648b202700ae09b40dc8d6944f54
 	except (TypeError, FileNotFoundError) as te:
 		logger.warning("No output image selected")
 		logger.info("Using an Empty SatoriImage to store results")
