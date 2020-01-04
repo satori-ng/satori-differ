@@ -260,6 +260,7 @@ def main():
 			with open(args.output, 'wb') as delete:
 				delete.write(b'')
 			logger.warn("SatoriImage '{}' overwritten".format(args.output))
+
 	except (TypeError, FileNotFoundError) as te:
 		logger.warning("No output image selected")
 		logger.info("Using an Empty SatoriImage to store results")
@@ -287,7 +288,7 @@ def main():
 	DIFF_NAME = name
 	logger.warning("New DIFF name is '{}'".format(DIFF_NAME))
 
-  with source_context as source:
+	with source_context as source:
 		with destination_context as destination:
 			if not args.entrypoints:
 				# s_entrypoints
