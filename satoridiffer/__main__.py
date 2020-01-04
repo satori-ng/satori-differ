@@ -8,6 +8,7 @@ from string import ascii_letters, digits
 from satoricore.image import SatoriImage
 from satoricore.crawler import BaseCrawler
 from satoricore.logger import logger, set_debug_logger
+
 from satoricore.common import get_image_context_from_arg
 from satoricore.file import load_image
 
@@ -41,7 +42,7 @@ def diff_directory(file_path, source, destination, results):
 		s_cont = set(source.listdir(file_path))
 		d_cont = set(destination.listdir(file_path))
 	except PermissionError:
-		logger.warn("Permission Denied for listing '{}'. Skipping..."
+		logger.warning("Permission Denied for listing '{}'. Skipping..."
 			.format(file_path)
 			)
 		return
@@ -104,7 +105,7 @@ def diff_file(file_path, source, destination, results):
 					file_path, file_type, source, destination, results, DIFF_NAME
 				)
 		except IOError:
-			logger.warn("'open()' System Call not supported on {}".format(file_path))
+			logger.warning("'open()' System Call not supported on {}".format(file_path))
 
 
 def diff_images(source, destination, entrypoints, results):
@@ -240,23 +241,23 @@ def main():
 	if args.debug: set_debug_logger()
 
 	source_context = get_image_context_from_arg(args.original_image)
-	logger.warn("Loaded image '{}'".format(args.original_image))
+	logger.warning("Loaded image '{}'".format(args.original_image))
 	destination_context = get_image_context_from_arg(args.tested_image)
-	logger.warn("Loaded image '{}'".format(args.tested_image))
+	logger.warning("Loaded image '{}'".format(args.tested_image))
 
  	# if not args.output:
 
 	try:
 		results = load_image(args.output)
 
-		logger.warn("SatoriImage '{}' loaded to archive results".format(args.output))
+		logger.warning("SatoriImage '{}' loaded to archive results".format(args.output))
 	except (TypeError, FileNotFoundError) as te:
-		logger.warn("No output image selected")
+		logger.warning("No output image selected")
 		logger.info("Using an Empty SatoriImage to store results")
 		results = SatoriImage()
 	except ValueError:
 		logger.error("Output image file '{}' is not a SatoriImage".format(args.output))
-		logger.warn("Using an Empty SatoriImage to store results".format(args.output))
+		logger.warning("Using an Empty SatoriImage to store results".format(args.output))
 		results = SatoriImage()
 	assert (results is not None)
 
@@ -264,7 +265,7 @@ def main():
 		logger.info("Adding DIFF section in SatoriImage")
 		results.add_section(_DIFFS_SECTION)
 	except KeyError:
-		logger.warn("DIFF Section in SatoriImage already exists")
+		logger.warning("DIFF Section in SatoriImage already exists")
 
 
 	existing_diffs = results.get_classes(_DIFFS_SECTION)
@@ -274,10 +275,10 @@ def main():
 			)
 
 	global DIFF_NAME
-	DIFF_NAME = get_diff_name(existing_diffs)
-	logger.warn("New DIFF name is '{}'".format(DIFF_NAME))
+	DIFF_NAME = name
+	logger.warning("New DIFF name is '{}'".format(DIFF_NAME))
 
-	with source_context as source:
+  with source_context as source:
 		with destination_context as destination:
 			if not args.entrypoints:
 				# s_entrypoints
@@ -285,14 +286,14 @@ def main():
 					s_epoints = source.get_entrypoints()
 					logger.info("Original Image entrypoints: {}".format(s_epoints))
 				except:
-					logger.warn("Entrypoints for source cannot be specified.")
+					logger.warning("Entrypoints for source cannot be specified.")
 					d_epoints = set('/')
 
 				try:
 					d_epoints = destination.get_entrypoints()
 					logger.info("Tested Image entrypoints: {}".format(d_epoints))
 				except:
-					logger.warn("Entrypoints for destination cannot be specified.")
+					logger.warning("Entrypoints for destination cannot be specified.")
 					d_epoints = set('/')
 
 				common_entrypoints = s_epoints & d_epoints
@@ -304,16 +305,16 @@ def main():
 							.format(str(common_entrypoints))
 						)
 					args.entrypoints = common_entrypoints
-			logger.warn("Operating for entrypoints: {}"
+			logger.warning("Operating for entrypoints: {}"
 					.format(str(args.entrypoints))
 				)
 
 			EVENTS['differ.on_start'](parser=parser, args=args, source=source,
 					destination=destination, results=results, diff_name=DIFF_NAME)
-			logger.warn("Diff Process Started...")
+			logger.warning("Diff Process Started...")
 			diff_images(source, destination, args.entrypoints, results)
 
-	logger.warn("Diff Process Finished!")
+	logger.warning("Diff Process Finished!")
 
 	if not args.output:
 		args.output = DIFF_NAME
@@ -323,11 +324,9 @@ def main():
 	if args.output.endswith(image_serializer.suffix):
 		image_serializer.suffix = ''
 	image_serializer.write(results, args.output)
-	logger.warn("Stored to file '{}'".format(image_serializer.last_file))
-
+	logger.warning("Stored to file '{}'".format(image_serializer.last_file))
 
 	EVENTS['differ.on_end'](results)
-
 
 
 if __name__ == '__main__':
